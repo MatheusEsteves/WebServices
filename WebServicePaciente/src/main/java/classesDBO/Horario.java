@@ -3,6 +3,7 @@ package classesDBO;
 import classesValidacao.Validacao;
 
 import java.io.Serializable;
+import java.sql.Date;
 import java.sql.Time;
 import java.util.Objects;
 
@@ -19,7 +20,8 @@ public class Horario implements Cloneable,Serializable{
   private int id;
   private Medico medico;
   private Clinica clinica;
-  private String diaSemana;
+  @JsonFormat(shape=JsonFormat.Shape.STRING,pattern="yyyy-MM-dd")
+  private Date data;
   @JsonFormat(shape=JsonFormat.Shape.STRING,pattern="HH:mm")
   private Time horaInicio;
   @JsonFormat(shape=JsonFormat.Shape.STRING,pattern="HH:mm")
@@ -31,7 +33,7 @@ public class Horario implements Cloneable,Serializable{
     hash = 67 * hash + this.id;
     hash = 67 * hash + Objects.hashCode(this.medico);
     hash = 67 * hash + Objects.hashCode(this.clinica);
-    hash = 67 * hash + Objects.hashCode(this.diaSemana);
+    hash = 67 * hash + Objects.hashCode(this.data);
     hash = 67 * hash + Objects.hashCode(this.horaInicio);
     hash = 67 * hash + Objects.hashCode(this.horaFim);
     return hash;
@@ -58,7 +60,7 @@ public class Horario implements Cloneable,Serializable{
     if (!Objects.equals(this.clinica, other.clinica)) {
         return false;
     }
-    if (!Objects.equals(this.diaSemana, other.diaSemana)) {
+    if (!Objects.equals(this.data, other.data)) {
         return false;
     }
     if (!Objects.equals(this.horaInicio, other.horaInicio)) {
@@ -88,7 +90,7 @@ public class Horario implements Cloneable,Serializable{
     this.id          = horario.getId();
     this.medico      = horario.getMedico();
     this.clinica     = horario.getClinica();
-    this.diaSemana   = horario.getDiaSemana();
+    this.data        = horario.getData();
     this.horaInicio  = horario.getHoraInicio();
     this.horaFim     = horario.getHoraFim();
   }
@@ -96,13 +98,13 @@ public class Horario implements Cloneable,Serializable{
   public Horario(int id, 
                  Medico medico,
                  Clinica clinica,
-                 String diaSemana,
+                 Date data,
                  Time horaInicio,
                  Time horaFim)throws Exception{
     this.setId(id);
     this.setMedico(medico);
     this.setClinica(clinica);
-    this.setDiaSemana(diaSemana);
+    this.setData(data);
     this.setHoraInicio(horaInicio);
     this.setHoraFim(horaFim);
   }
@@ -111,7 +113,7 @@ public class Horario implements Cloneable,Serializable{
     this.id          = 0; 
     this.medico      = null;
     this.clinica     = null;
-    this.diaSemana   = "";
+    this.data        = null;
     this.horaInicio  = null;
     this.horaFim     = null;
   }
@@ -145,15 +147,15 @@ public class Horario implements Cloneable,Serializable{
 	  throw new Exception("Clínica não fornecida.");
 	this.clinica = clinica; 
   }
-
-  public String getDiaSemana() {
-    return this.diaSemana;
+  
+  public void setData(Date data)throws Exception{
+	if (data == null)
+	  throw new Exception("Data não fornecida.");
+	this.data = data;
   }
-
-  public void setDiaSemana(String diaSemana)throws Exception{
-    if (!Validacao.isDiaSemanaValido(diaSemana))
-      throw new Exception("Dia de semana inválido.");
-    this.diaSemana = diaSemana.toUpperCase();
+  
+  public Date getData(){
+	return this.data;
   }
 
   @JsonSerialize(using=CustomTimeSerializer.class)

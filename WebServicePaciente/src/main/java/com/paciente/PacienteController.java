@@ -8,6 +8,7 @@
  */
 package com.paciente;
 import java.io.Serializable;
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -131,11 +132,11 @@ public class PacienteController {
     public ResponseEntity<Boolean> conectarBd() throws Exception {
         try{
             this.banco = new AdaptedPreparedStatement(
-            		       "org.postgresql.Driver",
-         	               "jdbc:postgresql://pellefant-02.db.elephantsql.com:5432/pdenoczt", 
-         	               "pdenoczt", 
-         	               "5u3vh6p8J3bRCO9ZbH_lh7iN3VRoeJOn"
-                         );
+              "org.postgresql.Driver",
+              "jdbc:postgresql://localhost/MedicoFacilDataBase",
+              "postgres",
+              "112358"
+            );
             this.cidades        = new Cidades(this.banco);
             this.estados        = new Estados(this.banco);
             this.especialidades = new Especialidades(this.banco);
@@ -143,10 +144,10 @@ public class PacienteController {
             this.medicos        = new Medicos(this.banco,this.estados);
             this.clinicas       = new Clinicas(this.banco,this.cidades,this.estados);
             this.medicoClinicas = new MedicoClinicas(this.banco,this.medicos,this.clinicas);
-            this.consultas      = new Consultas(this.banco,this.medicoClinicas,this.pacientes,this.medicos,this.clinicas);
+            this.horarios       = new Horarios(this.banco,this.medicos,this.clinicas,this.medicoClinicas);
+            this.consultas      = new Consultas(this.banco,this.medicoClinicas,this.pacientes,this.horarios);
             this.prontoSocorros = new ProntoSocorros(this.banco,this.cidades,this.estados);
             this.medicoProntoSocorros = new MedicoProntoSocorros(this.banco,this.medicos,this.prontoSocorros);
-            this.horarios = new Horarios(this.banco,this.medicos,this.clinicas);
             this.medicoEspecialidades = new MedicoEspecialidades(this.banco);
             this.convenios      = new Convenios(this.banco);
             this.convenioClinicas       = new ConvenioClinicas(this.banco);
@@ -732,7 +733,7 @@ public class PacienteController {
     public ResponseEntity<ArrayList<Horario>> getHorarios(@PathVariable(value="idMedico")int idMedico)throws Exception{
       ArrayList<Horario> horarios;
       try{
-        horarios = this.horarios.getHorarios("idMedico = "+idMedico);
+        horarios = this.horarios.getHorarios("idMedicoClinica in (select id from MedicoClinica_MF where idMedico = "+idMedico+")");
       }
       catch (Exception e){
     	return new ResponseEntity<ArrayList<Horario>>(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -740,20 +741,21 @@ public class PacienteController {
       return new ResponseEntity<ArrayList<Horario>>(horarios,HttpStatus.OK);
     }
     
-    /*@CrossOrigin
+    @CrossOrigin
     @RequestMapping(value="/getHorariosLivres/{idMedico}",method=RequestMethod.GET)
     public ResponseEntity<ArrayList<Horario>> getHorariosLivres(@PathVariable(value="idMedico")int idMedico)throws Exception{
       ArrayList<Horario> horarios;
       try{
         horarios = this.horarios.getHorarios(
-          "idMedico = "+idMedico
+          "idMedicoClinica in (select id from MedicoClinica_MF where idMedico = "+idMedico+") and "+
+          "not (id in (select idHorario from Consulta_MF))"
         );
       }
       catch (Exception e){
     	return new ResponseEntity<ArrayList<Horario>>(HttpStatus.INTERNAL_SERVER_ERROR);
       }
       return new ResponseEntity<ArrayList<Horario>>(horarios,HttpStatus.OK);
-    }*/
+    }
     
     @CrossOrigin
     @RequestMapping(value="/getMedicosPlantao/{idPs}",method=RequestMethod.GET)
@@ -825,7 +827,9 @@ public class PacienteController {
       try{
         consultas = this.consultas.getConsultas(
           "idPaciente = "+this.paciente.getId()+" and "+
-          "idMedicoClinica in (select id from MedicoClinica_MF where idMedico in (select id from Medico_MF where nome like '%"+nomeMedico+"%'))"	
+          "idHorario in (select id from Horario_MF where "+
+          "idMedicoClinica in (select id from MedicoClinica_MF where "+
+          "idMedico in (select id from Medico_MF where nome like '%"+nomeMedico+"%')))"	
         );
       }
       catch (Exception e){
@@ -841,7 +845,9 @@ public class PacienteController {
       try{
         consultas = this.consultas.getConsultas(
           "idPaciente = "+this.paciente.getId()+" and "+
-          "idMedicoClinica in (select id from MedicoClinica_MF where idClinica in (select id from Clinica_MF where nome like '%"+nomeClinica+"%'))"	
+          "idHorario in (select id from Horario_MF where "+
+          "idMedicoClinica in (select id from MedicoClinica_MF where "+
+          "idClinica in (select id from Clinica_MF where nome like '%"+nomeClinica+"%')))"	
         );
       }
       catch (Exception e){
@@ -954,33 +960,6 @@ public class PacienteController {
     	return new ResponseEntity<Clinica>(HttpStatus.INTERNAL_SERVER_ERROR);
       }
       return new ResponseEntity<Clinica>(clinica,HttpStatus.OK);
-    }
-    
-    /**
-     * Método que retorna o id de uma consulta com paciente,médico,clínica e data/hora especificados
-     * @param String cpf : CPF do paciente
-     * @param String crm : CRM do médico
-     * @param String clinica : Nome da clínica
-     * @param Timestamp dataHora : data e hora da consulta
-     * @return Integer : Id da consulta
-     * @throws Exception
-     */
-    @CrossOrigin
-    @RequestMapping(value="/getIdConsulta/{cpf}/{crm}/{clinica}/{dataHora}",method=RequestMethod.GET)
-    public ResponseEntity<Integer> getIdConsulta(
-    		                         @PathVariable(value="cpf")String cpf,
-    		                         @PathVariable(value="crm")String crm,
-    		                         @PathVariable(value="clinica")String clinica,
-    		                         @PathVariable(value="dataHora")Timestamp dataHora
-    		                       )throws Exception{
-      int idConsulta;
-      try{
-        idConsulta = this.consultas.getId(cpf,crm,clinica,dataHora);
-      }
-      catch (Exception e){
-        return new ResponseEntity<Integer>(HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-      return new ResponseEntity<Integer>(idConsulta,HttpStatus.OK);
     }
     
     /**
@@ -1246,17 +1225,17 @@ public class PacienteController {
      * @throws Exception
      */
     @CrossOrigin
-    @RequestMapping(value="/getIdHorario/{idMedico}/{idClinica}/{diaSemana}/{horaInicio}/{horaFim}",method=RequestMethod.GET)
+    @RequestMapping(value="/getIdHorario/{idMedico}/{idClinica}/{data}/{horaInicio}/{horaFim}",method=RequestMethod.GET)
     public ResponseEntity<Integer> getIdHorario(
     		                         @PathVariable(value="idMedico")int idMedico,
     		                         @PathVariable(value="idClinica")int idClinica,
-    		                         @PathVariable(value="diaSemana")String diaSemana,
+    		                         @PathVariable(value="data")Date data,
     		                         @PathVariable(value="horaInicio")Time horaInicio,
     		                         @PathVariable(value="horaFim")Time horaFim
     		                       )throws Exception{
       int idHorario;
       try{
-        idHorario = this.horarios.getId(idMedico,idClinica,diaSemana,horaInicio,horaFim);
+        idHorario = this.horarios.getId(idMedico,idClinica,data,horaInicio,horaFim);
       }
       catch (Exception e){
         return new ResponseEntity<Integer>(HttpStatus.INTERNAL_SERVER_ERROR);

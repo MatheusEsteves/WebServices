@@ -2,6 +2,9 @@ package classesDAO;
 
 import classesBD.AdaptedPreparedStatement;
 import classesDBO.Horario;
+import classesDBO.MedicoClinica;
+
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.Time;
 import java.util.ArrayList;
@@ -15,17 +18,19 @@ public class Horarios {
   private AdaptedPreparedStatement bd;
   private Medicos medicos;
   private Clinicas clinicas;
+  private MedicoClinicas medicoClinicas;
   
   /**
    * @param bd
    * @throws Exception 
    */
-  public Horarios(AdaptedPreparedStatement bd,Medicos medicos,Clinicas clinicas)throws Exception{
+  public Horarios(AdaptedPreparedStatement bd,Medicos medicos,Clinicas clinicas,MedicoClinicas medicoClinicas)throws Exception{
     if (bd == null)
       throw new Exception("BD não fornecido.");
     this.bd       = bd;
     this.medicos  = medicos;
     this.clinicas = clinicas;
+    this.medicoClinicas = medicoClinicas;
   }
   
   /**
@@ -38,19 +43,20 @@ public class Horarios {
     
     int idMedico     = this.medicos.getId(horario.getMedico().getCrm());
     int idClinica    = this.clinicas.getId(horario.getClinica().getNome());
-    String diaSemana = horario.getDiaSemana();
+    Date data        = horario.getData();
     Time horaInicio  = horario.getHoraInicio();
     Time horaFim     = horario.getHoraFim();
     
-    if (this.isHorarioExistente(idMedico, diaSemana, horaInicio, horaFim))
-      throw new Exception("Já existe esse horário para esse médico nesse dia da semana.");
+    if (this.isHorarioExistente(idMedico, data, horaInicio, horaFim))
+      throw new Exception("Já existe esse horário para esse médico nesse dia.");
     
-    this.bd.prepareStatement("insert into Horario_MF (idMedico,diaSemana,horaInicio,horaFim,idClinica) values (?,?,?,?,?)");
-    this.bd.setInt(1,idMedico);
-    this.bd.setString(2,diaSemana);
+    int idMedicoClinica = this.medicoClinicas.getId(idMedico,idClinica);
+    
+    this.bd.prepareStatement("insert into Horario_MF (idMedicoClinica,data,horarioInicio,horarioFim) values (?,?,?,?)");
+    this.bd.setInt(1,idMedicoClinica);
+    this.bd.setDate(2,data);
     this.bd.setTime(3,horaInicio);
     this.bd.setTime(4,horaFim);
-    this.bd.setInt(5,idClinica);
     this.bd.executeUpdate();
     this.bd.commit();
   }
@@ -65,19 +71,22 @@ public class Horarios {
     
     int id           = horario.getId();
     int idMedico     = this.medicos.getId(horario.getMedico().getCrm());
-    String diaSemana = horario.getDiaSemana();
+    int idClinica    = this.clinicas.getId(horario.getClinica().getNome());
+    Date data        = horario.getData();
     Time horaInicio  = horario.getHoraInicio();
     Time horaFim     = horario.getHoraFim();
     
-    if (this.isHorarioExistente(idMedico, diaSemana, horaInicio, horaFim,id))
-      throw new Exception("Já existe esse horário para esse médico nesse dia da semana.");
+    if (this.isHorarioExistente(idMedico, data, horaInicio, horaFim,id))
+      throw new Exception("Já existe esse horário para esse médico nesse dia.");
     
-    this.bd.prepareStatement("update Horario_MF set diaSemana = ?,horaInicio = ?,horaFim = ? where id = ? and idMedico = ?");
-    this.bd.setString(1,diaSemana);
+    int idMedicoClinica = this.medicoClinicas.getId(idMedico,idClinica);
+    
+    this.bd.prepareStatement("update Horario_MF set data = ?,horarioInicio = ?,horarioFim = ? where idMedicoClinica = ? and id = ?");
+    this.bd.setDate(1,data);
     this.bd.setTime(2,horaInicio);
     this.bd.setTime(3,horaFim);
-    this.bd.setInt(4,id);
-    this.bd.setInt(5,idMedico);
+    this.bd.setInt(4,idMedicoClinica);
+    this.bd.setInt(5,id);
     this.bd.executeUpdate();
     this.bd.commit();
   }
@@ -103,17 +112,19 @@ public class Horarios {
    */
   private ArrayList<Horario> getHorarios(ResultSet resultado)throws Exception{
     ArrayList<Horario> lista = new ArrayList<Horario>();
-    while (resultado.next())
+    while (resultado.next()){
+      MedicoClinica medicoClinica = this.medicoClinicas.getMedicoClinicas("id = "+resultado.getInt(1)).get(0);
       lista.add(
         new Horario(
-          resultado.getInt(1),
-          this.medicos.getMedicos("id = "+resultado.getInt(2)).get(0),
-          this.clinicas.getClinicas("id = "+resultado.getInt(3)).get(0),
-          resultado.getString(4),
-          resultado.getTime(5),
-          resultado.getTime(6)
+          resultado.getInt(2),
+          medicoClinica.getMedico(),
+          medicoClinica.getClinica(),
+          resultado.getDate(3),
+          resultado.getTime(4),
+          resultado.getTime(5)
         )      
       );
+    }
     return lista;
   }
   
@@ -126,7 +137,7 @@ public class Horarios {
     if (condicao == null)
       throw new Exception("Condição não fornecida.");
     
-    this.bd.prepareStatement("select id,idMedico,idClinica,diaSemana,horaInicio,horaFim from Horario_MF where "+condicao);
+    this.bd.prepareStatement("select idMedicoClinica,id,data,horarioInicio,horarioFim from Horario_MF where "+condicao);
     ResultSet resultado = this.bd.executeQuery();
     ArrayList<Horario> lista = this.getHorarios(resultado);
     resultado.close();
@@ -138,7 +149,7 @@ public class Horarios {
    * @throws Exception 
    */
   public ArrayList<Horario> getHorarios()throws Exception{
-    this.bd.prepareStatement("select id,idMedico,idClinica,diaSemana,horaInicio,horaFim from Horario_MF");
+    this.bd.prepareStatement("select idMedicoClinica,id,data,horarioInicio,horarioFim from Horario_MF");
     ResultSet resultado = this.bd.executeQuery();
     ArrayList<Horario> lista = this.getHorarios(resultado);
     resultado.close();
@@ -170,17 +181,18 @@ public class Horarios {
    * @return
    * @throws Exception 
    */
-  public boolean isHorarioExistente(int idMedico,String diaSemana,Time horaInicio,Time horaFim)throws Exception{
+  public boolean isHorarioExistente(int idMedico,Date data,Time horaInicio,Time horaFim)throws Exception{
     this.bd.prepareStatement(
-       "select count(id) from Horario_MF where idMedico = ? and diaSemana = ? and "+
+       "select count(id) from Horario_MF where idMedicoClinica in (select id from MedicoClinica_MF where idMedico = ?) and "+
+       "data = ? and "+
        "("+
-         "(? >= horaInicio and ? < horaFim) or "+
-         "(? <= horaFim and ? > horaInicio) or "+
-         "(? < horaInicio and ? > horaFim)"+
+         "(? >= horarioInicio and ? < horarioFim) or "+
+         "(? <= horarioFim and ? > horarioInicio) or "+
+         "(? < horarioInicio and ? > horarioFim)"+
        ")"
     );
     this.bd.setInt(1,idMedico);
-    this.bd.setString(2,diaSemana);
+    this.bd.setDate(2,data);
     this.bd.setTime(3,horaInicio);
     this.bd.setTime(4,horaInicio);
     this.bd.setTime(5,horaFim);
@@ -205,17 +217,18 @@ public class Horarios {
    * @return
    * @throws Exception 
    */
-  public boolean isHorarioExistente(int idMedico,String diaSemana,Time horaInicio,Time horaFim,int id)throws Exception{
+  public boolean isHorarioExistente(int idMedico,Date data,Time horaInicio,Time horaFim,int id)throws Exception{
 	this.bd.prepareStatement(
-	  "select id from Horario_MF where idMedico = ? and diaSemana = ? and "+
+	  "select id from Horario_MF where idMedicoClinica in (select id from MedicoClinica_MF where idMedico = ?) and "+
+	  "data = ? and "+
 	  "("+
-	    "(? >= horaInicio and ? < horaFim) or "+
-	    "(? <= horaFim and ? > horaInicio) or "+
-	    "(? < horaInicio and ? > horaFim)"+
+	    "(? >= horarioInicio and ? < horarioFim) or "+
+	    "(? <= horarioFim and ? > horarioInicio) or "+
+	    "(? < horarioInicio and ? > horarioFim)"+
 	  ")"
     );
     this.bd.setInt(1,idMedico);
-    this.bd.setString(2,diaSemana);
+    this.bd.setDate(2,data);
     this.bd.setTime(3,horaInicio);
     this.bd.setTime(4,horaInicio);
     this.bd.setTime(5,horaFim);
@@ -236,13 +249,15 @@ public class Horarios {
     return isHorarioExistente;
   }
   
-  public int getId(int idMedico,int idClinica,String diaSemana,Time horaInicio,Time horaFim)throws Exception{
+  public int getId(int idMedico,int idClinica,Date data,Time horaInicio,Time horaFim)throws Exception{
 	this.bd.prepareStatement(
-      "select id from Horario_MF where idMedico = ? and idClinica = ? and diaSemana = ? and horaInicio = ? and horaFim = ?"
+      "select id from Horario_MF where idMedicoClinica in "+
+	  "(select id from MedicoClinica_MF where idMedico = ? and idClinica = ?) and "+
+      "data = ? and horarioInicio = ? and horarioFim = ?"
     );
 	this.bd.setInt(1,idMedico);
 	this.bd.setInt(2,idClinica);
-	this.bd.setString(3,diaSemana);
+	this.bd.setDate(3,data);
 	this.bd.setTime(4,horaInicio);
 	this.bd.setTime(5,horaFim);
 	

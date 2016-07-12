@@ -444,22 +444,28 @@ public class Validacao{
   }
   
   /**
-  * Verifica se o dia da semana passado é válido ou não. 
-  * O dia da semana fornecido deve se enquadrar nos modelos
-  * já existentes : SEG,TER,QUA,QUI,SEX,SAB E DOM. Caso não
-  * seja igual à qualquer um desses, será considerado inválido.
-  * 
-  * @param diaSemana String - Dia da semana.
-  * @return boolean - Indica se o dia da semana é válido ou não.
-  */
-  public static boolean isDiaSemanaValido(String diaSemana)throws Exception{
-    if (!Validacao.isStringFornecida(diaSemana))
-      return false;
-    diaSemana = diaSemana.toUpperCase();
-    String diasSemana[] = {"SEG","TER","QUA","QUI","SEX","SAB","DOM"};
-    for (int i = 0; i < 7; i++)
-      if (diaSemana.equals(diasSemana[i]))
-        return true;
-    return false;
+   * Retorna o número relacionado ao dia da semana, conforme o esquema abaixo:
+   * Domingo       : 0
+   * Segunda-feira : 1
+   * Terça-feira   : 2
+   * Quarta-feira  : 3
+   * Quinta-feira  : 4
+   * Sexta-feira   : 5
+   * Sábado        : 6
+   * Caso o dia passado como parâmetro não se enquadre em nenhum desses, o retorno será -1;
+   * @param dia
+   * @return
+   */
+  public static int getNumeroDia(String dia){
+	  switch(dia){
+        case "DOM" : return 0;
+        case "SEG" : return 1;
+        case "TER" : return 2;
+        case "QUA" : return 3;
+        case "QUI" : return 4;
+        case "SEX" : return 5;
+        case "SÁB" : return 6;
+        default    : return -1;
+	  }
   }
 }
