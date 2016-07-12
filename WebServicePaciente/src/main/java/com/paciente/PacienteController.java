@@ -133,9 +133,9 @@ public class PacienteController {
         try{
             this.banco = new AdaptedPreparedStatement(
               "org.postgresql.Driver",
-              "jdbc:postgresql://localhost/MedicoFacilDataBase",
-              "postgres",
-              "112358"
+              "jdbc:postgresql://pellefant-02.db.elephantsql.com:5432/pdenoczt", 
+              "pdenoczt", 
+              "5u3vh6p8J3bRCO9ZbH_lh7iN3VRoeJOn" 
             );
             this.cidades        = new Cidades(this.banco);
             this.estados        = new Estados(this.banco);
