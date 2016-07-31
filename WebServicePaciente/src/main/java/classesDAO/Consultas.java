@@ -78,9 +78,10 @@ public class Consultas{
     if (this.isConsultaExistentePorPaciente(horario,idPaciente,id))
       throw new Exception("Já existe consulta com esse paciente marcada para esse horário.");
     
-    this.bd.prepareStatement("update Consulta_MF set idHorario = ? where idPaciente = ?");
+    this.bd.prepareStatement("update Consulta_MF set idHorario = ? where idPaciente = ? and id = ?");
     this.bd.setInt(1,idHorario);
     this.bd.setInt(2,idPaciente);
+    this.bd.setInt(3,id);
     this.bd.executeUpdate();
     this.bd.commit();
   }
@@ -249,7 +250,7 @@ public class Consultas{
    */
   public boolean isConsultaExistentePorPaciente(Horario horario,int idPaciente,int id)throws Exception{
 	this.bd.prepareStatement(
-	  "select count(id) from Consulta_MF where idPaciente = ? and idHorario in ("+
+	  "select id from Consulta_MF where idPaciente = ? and idHorario in ("+
 	  "select id from Horario_MF where data = ? and "+
 	  "("+
 		 "(? >= horarioInicio and ? < horarioFim) or "+

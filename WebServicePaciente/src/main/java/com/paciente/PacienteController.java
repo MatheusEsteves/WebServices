@@ -14,9 +14,14 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 
+import javax.annotation.Resource;
 import javax.jws.WebParam;
+import javax.servlet.http.HttpServletRequest;
 import javax.websocket.server.PathParam;
+import javax.xml.ws.WebServiceContext;
+import javax.xml.ws.handler.MessageContext;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -238,7 +243,7 @@ public class PacienteController {
     @RequestMapping(value = "/alterarConsulta",method = RequestMethod.POST)
     public ResponseEntity<Boolean> alterarConsulta(@RequestBody(required=true) Consulta consulta) throws Exception {
         try{
-          consulta.setPaciente(paciente);
+          consulta.setPaciente(this.paciente);
           this.consultas.alterar(consulta);
         }
         catch (Exception e){
@@ -288,6 +293,28 @@ public class PacienteController {
     	return new ResponseEntity<ArrayList<ProntoSocorro>>(prontoSocorros,HttpStatus.OK);
     }
     
+    @CrossOrigin
+    @RequestMapping(value = "/getProntoSocorrosPorNomeConvenio/{nome}/{idConvenio}/{latitude}/{longitude}",method = RequestMethod.GET)
+    public ResponseEntity<ArrayList<ProntoSocorro>> getProntoSocorros(
+    		                                          @PathVariable(value="nome")String nome,
+    		                                          @PathVariable(value="idConvenio")int idConvenio,
+    		                                          @PathVariable(value="latitude")float latitude,
+    		                                          @PathVariable(value="longitude")float longitude
+    		                                        ) throws Exception {
+        ArrayList<ProntoSocorro> prontoSocorros = null;
+    	try{
+           prontoSocorros = this.prontoSocorros.getProntoSocorros(
+             "nome like '%"+nome+"%' and id in ("+
+             "select idPs from ConvenioPs_MF where idConvenio = "+idConvenio+")",
+             latitude,longitude
+           );
+    	}
+    	catch (Exception e){
+    	   return new ResponseEntity<ArrayList<ProntoSocorro>>(HttpStatus.INTERNAL_SERVER_ERROR);
+    	}
+    	return new ResponseEntity<ArrayList<ProntoSocorro>>(prontoSocorros,HttpStatus.OK);
+    }
+    
     /**
      * Método que retorna clínicas por parte do seu nome.
      * @return  ArrayList<Clinica>, ordenadas pela distância do local até o paciente.
@@ -305,6 +332,28 @@ public class PacienteController {
        ArrayList<Clinica> clinicas;
        try{
     	  clinicas = this.clinicas.getClinicas("nome like '%"+nome+"%'",latitude,longitude);
+       }
+       catch (Exception e){
+    	   return new ResponseEntity<ArrayList<Clinica>>(HttpStatus.INTERNAL_SERVER_ERROR);
+       }
+       return new ResponseEntity<ArrayList<Clinica>>(clinicas,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value = "/getClinicasPorNomeConvenio/{nome}/{idConvenio}/{latitude}/{longitude}",method = RequestMethod.GET)
+    public ResponseEntity<ArrayList<Clinica>> getClinicas(
+    		                                    @PathVariable(value="nome")String nome,
+    		                                    @PathVariable(value="idConvenio")int idConvenio,
+    		                                    @PathVariable(value="latitude")float latitude,
+    		                                    @PathVariable(value="longitude")float longitude
+    		                                  )throws Exception {
+       ArrayList<Clinica> clinicas;
+       try{
+    	  clinicas = this.clinicas.getClinicas(
+    		"nome like '%"+nome+"%' and id in ("+
+    	    "select idClinica from ConvenioClinica_MF where idConvenio = "+idConvenio+")",
+    		latitude,longitude
+          );
        }
        catch (Exception e){
     	   return new ResponseEntity<ArrayList<Clinica>>(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -336,6 +385,48 @@ public class PacienteController {
      	  return new ResponseEntity<ArrayList<Clinica>>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
         return new ResponseEntity<ArrayList<Clinica>>(lista,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value = "/getClinicasPorEspecialidade/{especialidade}/{latitude}/{longitude}",method = RequestMethod.GET)
+    public ResponseEntity<ArrayList<Clinica>> getClinicasPorEspecialidade(
+    		                                    @PathVariable(value="especialidade")String especialidade,
+    		                                    @PathVariable(value="latitude")float latitude,
+    		                                    @PathVariable(value="longitude")float longitude
+    		                                  )throws Exception{
+    	ArrayList<Clinica> lista;
+        try{
+     	  lista = this.clinicas.getClinicas(
+     	  "id in (select idClinica from MedicoClinica_MF where idMedico in ("+
+     	  "select idMedico from MedicoEspecialidade_MF where idEspecialidade in ("+
+     	  "select id from Especialidade_MF where nome like '%"+especialidade+"%')))"		  
+     	  ,latitude,longitude);
+        }
+        catch (Exception e){
+     	  return new ResponseEntity<ArrayList<Clinica>>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return new ResponseEntity<ArrayList<Clinica>>(lista,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value = "/getProntoSocorrosPorEspecialidade/{especialidade}/{latitude}/{longitude}",method = RequestMethod.GET)
+    public ResponseEntity<ArrayList<ProntoSocorro>> getClinicasPorCidade(
+    		                                    @PathVariable(value="especialidade")String especialidade,
+    		                                    @PathVariable(value="latitude")float latitude,
+    		                                    @PathVariable(value="longitude")float longitude
+    		                                  )throws Exception{
+    	ArrayList<ProntoSocorro> lista;
+        try{
+     	  lista = this.prontoSocorros.getProntoSocorros(
+     	  "id in (select idPs from MedicoPs_MF where idMedico in ("+
+     	  "select idMedico from MedicoEspecialidade_MF where idEspecialidade in ("+
+     	  "select id from Especialidade_MF where nome like '%"+especialidade+"%')))"		  
+     	  ,latitude,longitude);
+        }
+        catch (Exception e){
+     	  return new ResponseEntity<ArrayList<ProntoSocorro>>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return new ResponseEntity<ArrayList<ProntoSocorro>>(lista,HttpStatus.OK);
     }
     
     
@@ -393,6 +484,27 @@ public class PacienteController {
         return new ResponseEntity<ArrayList<Clinica>>(lista,HttpStatus.OK);
     }
     
+    @CrossOrigin
+    @RequestMapping(value = "/getClinicasPorIdConvenio/{idConvenio}/{latitude}/{longitude}",method = RequestMethod.GET)
+    public ResponseEntity<ArrayList<Clinica>> getClinicas(
+    		                                    @PathVariable(value="idConvenio")int idConvenio,
+    		                                    @PathVariable(value="latitude")float latitude,
+    		                                    @PathVariable(value="longitude")float longitude
+    		                                  ) throws Exception {
+        ArrayList<Clinica> lista;
+        try{
+          lista = this.clinicas.getClinicas(
+            "id in ("+
+              "select idClinica from ConvenioClinica_MF where idConvenio = "+idConvenio+
+            ")",latitude,longitude
+          );
+        }
+        catch (Exception e){
+        	return new ResponseEntity<ArrayList<Clinica>>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return new ResponseEntity<ArrayList<Clinica>>(lista,HttpStatus.OK);
+    }
+    
     /**
      * Método que retorna pronto socorros por um determinado convênio médico
      * @param String convenio : nome do convênio médico
@@ -413,6 +525,27 @@ public class PacienteController {
           lista = this.prontoSocorros.getProntoSocorros(
             "id in ("+
               "select idPs from ConvenioPs_MF where idConvenio = "+this.convenios.getId(convenio)+
+            ")",latitude,longitude
+          );
+        }
+        catch (Exception e){
+        	return new ResponseEntity<ArrayList<ProntoSocorro>>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return new ResponseEntity<ArrayList<ProntoSocorro>>(lista,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value = "/getProntoSocorrosPorIdConvenio/{idConvenio}/{latitude}/{longitude}",method = RequestMethod.GET)
+    public ResponseEntity<ArrayList<ProntoSocorro>> getProntoSocorros(
+    		                                          @PathVariable(value="idConvenio")int idConvenio,
+    		                                          @PathVariable(value="latitude")float latitude,
+    	    		                                  @PathVariable(value="longitude")float longitude
+    	    		                                ) throws Exception {
+        ArrayList<ProntoSocorro> lista;
+        try{
+          lista = this.prontoSocorros.getProntoSocorros(
+            "id in ("+
+              "select idPs from ConvenioPs_MF where idConvenio = "+idConvenio+
             ")",latitude,longitude
           );
         }
@@ -511,6 +644,25 @@ public class PacienteController {
         return new ResponseEntity<ArrayList<Especialidade>>(especialidades,HttpStatus.OK);
     }
     
+    @CrossOrigin
+    @RequestMapping(value = "/getEspecialidadesPorNomeClinica/{nome}/{clinica}",method = RequestMethod.GET)
+    public ResponseEntity<ArrayList<Especialidade>> getEspecialidadesPorNomeClinica(
+    	                                                       @PathVariable(value="nome")String nome,
+    		                                                   @PathVariable(value="clinica")String clinica) throws Exception{
+        ArrayList<Especialidade> especialidades;
+        try{
+          especialidades = this.especialidades.getEspecialidades(
+            "nome like '%"+nome+"%' and "+
+            "id in (select idEspecialidade from MedicoEspecialidade_MF where idMedico in ("+
+            "select idMedico from MedicoClinica_MF where idClinica = "+this.clinicas.getId(clinica)+"))"
+          );
+        }
+        catch (Exception e){
+          return new ResponseEntity<ArrayList<Especialidade>>(HttpStatus.OK);
+        }
+        return new ResponseEntity<ArrayList<Especialidade>>(especialidades,HttpStatus.OK);
+    }
+    
     /**
      * Método que retorna todas as especialidades de um determinado pronto socorro.
      * @return  ArrayList<Especialidade>
@@ -522,6 +674,25 @@ public class PacienteController {
         ArrayList<Especialidade> especialidades;
         try{
           especialidades = this.especialidades.getEspecialidades(
+            "id in (select idEspecialidade from MedicoEspecialidade_MF where idMedico in ("+
+            "select idMedico from MedicoPs_MF where idPs = "+this.prontoSocorros.getId(ps)+"))"
+          );
+        }
+        catch (Exception e){
+          return new ResponseEntity<ArrayList<Especialidade>>(HttpStatus.OK);
+        }
+        return new ResponseEntity<ArrayList<Especialidade>>(especialidades,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value = "/getEspecialidadesPorNomePs/{nome}/{ps}",method = RequestMethod.GET)
+    public ResponseEntity<ArrayList<Especialidade>> getEspecialidadesPorNomePs(
+    		                                          @PathVariable(value="nome") String nome,
+    		                                          @PathVariable(value="ps") String ps) throws Exception{
+        ArrayList<Especialidade> especialidades;
+        try{
+          especialidades = this.especialidades.getEspecialidades(
+            "nome like '%"+nome+"%' and "+
             "id in (select idEspecialidade from MedicoEspecialidade_MF where idMedico in ("+
             "select idMedico from MedicoPs_MF where idPs = "+this.prontoSocorros.getId(ps)+"))"
           );
@@ -758,11 +929,65 @@ public class PacienteController {
     }
     
     @CrossOrigin
+    @RequestMapping(value="/getHorariosLivresPorMedicoClinica/{idMedico}/{idClinica}",method=RequestMethod.GET)
+    public ResponseEntity<ArrayList<Horario>> getHorariosLivres(@PathVariable(value="idMedico")int idMedico,
+    		                                                    @PathVariable(value="idClinica")int idClinica)throws Exception{
+      ArrayList<Horario> horarios;
+      try{
+        horarios = this.horarios.getHorarios(
+          "idMedicoClinica in (select id from MedicoClinica_MF where idMedico = "+idMedico+" and idClinica = "+idClinica+") and "+
+          "not (id in (select idHorario from Consulta_MF))"
+        );
+      }
+      catch (Exception e){
+    	return new ResponseEntity<ArrayList<Horario>>(HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return new ResponseEntity<ArrayList<Horario>>(horarios,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value="/getHorariosLivresPorDataMedicoClinica/{data}/{idMedico}/{idClinica}",method=RequestMethod.GET)
+    public ResponseEntity<ArrayList<Horario>> getHorariosLivres(
+    		                                       @PathVariable(value="data")Date data,
+    		                                       @PathVariable(value="idMedico")int idMedico,
+    		                                       @PathVariable(value="idClinica")int idClinica)throws Exception{
+      ArrayList<Horario> horarios;
+      try{
+        horarios = this.horarios.getHorarios(
+          "data = '"+data.toString()+"' and "+
+          "idMedicoClinica in (select id from MedicoClinica_MF where idMedico = "+idMedico+" and idClinica = "+idClinica+") and "+
+          "not (id in (select idHorario from Consulta_MF))"
+        );
+      }
+      catch (Exception e){
+    	return new ResponseEntity<ArrayList<Horario>>(HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return new ResponseEntity<ArrayList<Horario>>(horarios,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
     @RequestMapping(value="/getMedicosPlantao/{idPs}",method=RequestMethod.GET)
     public ResponseEntity<ArrayList<Medico>> getMedicosPlantao(@PathVariable(value="idPs")int idPs)throws Exception{
       ArrayList<Medico> medicos;
       try{
         medicos = this.medicos.getMedicos(
+          "id in (select idMedico from MedicoPs_MF where idPs = "+idPs+" and presente = 'S')"
+        );
+      }
+      catch (Exception e){
+    	return new ResponseEntity<ArrayList<Medico>>(HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return new ResponseEntity<ArrayList<Medico>>(medicos,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value="/getMedicosPlantaoPorEspecialidadePs/{idEspecialidade}/{idPs}",method=RequestMethod.GET)
+    public ResponseEntity<ArrayList<Medico>> getMedicosPlantao(@PathVariable(value="idEspecialidade")int idEspecialidade,
+    		                                                   @PathVariable(value="idPs")int idPs)throws Exception{
+      ArrayList<Medico> medicos;
+      try{
+        medicos = this.medicos.getMedicos(
+          "id in (select idMedico from MedicoEspecialidade_MF where idEspecialidade = "+idEspecialidade+") and "+
           "id in (select idMedico from MedicoPs_MF where idPs = "+idPs+" and presente = 'S')"
         );
       }
@@ -839,6 +1064,30 @@ public class PacienteController {
     }
     
     @CrossOrigin
+    @RequestMapping(value="/getConsultasPorHorario",method=RequestMethod.POST)
+    public ResponseEntity<ArrayList<Consulta>> getConsultasPorHorario(@RequestBody(required=true) Horario horario){
+      ArrayList<Consulta> consultas;
+      try{
+    	String horaInicio = horario.getHoraInicio().toString();
+    	String horaFim    = horario.getHoraFim().toString();
+    	consultas = this.consultas.getConsultas(
+          "idPaciente = "+this.paciente.getId()+" and "+
+          "idHorario in (select id from Horario_MF where "+
+          "data = '"+horario.getData().toString()+"' and "+
+          "("+
+            "('"+horaInicio+"' >= horarioInicio and '"+horaInicio+"' < horarioFim) or "+
+            "('"+horaFim+"' <= horarioFim and '"+horaFim+"' > horarioInicio) or "+
+            "('"+horaInicio+"' < horarioInicio and '"+horaFim+"' > horarioFim)"+
+          "))"
+        );
+      }
+      catch (Exception e){
+      	return new ResponseEntity<ArrayList<Consulta>>(HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return new ResponseEntity<ArrayList<Consulta>>(consultas,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
     @RequestMapping(value="/getConsultasPorClinica/{nomeClinica}",method=RequestMethod.GET)
     public ResponseEntity<ArrayList<Consulta>> getConsultasPorClinica(@PathVariable(value="nomeClinica")String nomeClinica)throws Exception{
       ArrayList<Consulta> consultas;
@@ -852,6 +1101,46 @@ public class PacienteController {
       }
       catch (Exception e){
     	return new ResponseEntity<ArrayList<Consulta>>(HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return new ResponseEntity<ArrayList<Consulta>>(consultas,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value="/getConsultasPorMedicoClinica/{idMedico}/{idClinica}",method=RequestMethod.GET)
+    public ResponseEntity<ArrayList<Consulta>> getConsultasPorMedicoClinica(@PathVariable(value="idMedico")int idMedico,
+    		                                                                @PathVariable(value="idClinica")int idClinica){
+      ArrayList<Consulta> consultas;
+      try{
+    	consultas = this.consultas.getConsultas(
+    	  "idPaciente = "+this.paciente.getId()+" and "+
+    	  "idHorario in (select id from Horario_MF where "+
+    	  "idMedicoClinica in (select id from MedicoClinica_MF where "+
+    	  "idMedico = "+idMedico+" and idClinica = "+idClinica+"))"
+        );
+      }
+      catch (Exception e){
+      	return new ResponseEntity<ArrayList<Consulta>>(HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return new ResponseEntity<ArrayList<Consulta>>(consultas,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value="/getConsultasPorDataMedicoClinica/{data}/{idMedico}/{idClinica}",method=RequestMethod.GET)
+    public ResponseEntity<ArrayList<Consulta>> getConsultasPorDataMedicoClinica(
+    	                                                     @PathVariable(value="data")Date data,
+    		                                                 @PathVariable(value="idMedico")int idMedico,
+    		                                                 @PathVariable(value="idClinica")int idClinica){
+      ArrayList<Consulta> consultas;
+      try{
+    	consultas = this.consultas.getConsultas(
+    	  "idPaciente = "+this.paciente.getId()+" and "+
+    	  "idHorario in (select id from Horario_MF where data = '"+data.toString()+"' and "+
+    	  "idMedicoClinica in (select id from MedicoClinica_MF where "+
+    	  "idMedico = "+idMedico+" and idClinica = "+idClinica+"))"
+        );
+      }
+      catch (Exception e){
+      	return new ResponseEntity<ArrayList<Consulta>>(HttpStatus.INTERNAL_SERVER_ERROR);
       }
       return new ResponseEntity<ArrayList<Consulta>>(consultas,HttpStatus.OK);
     }
@@ -880,6 +1169,75 @@ public class PacienteController {
     	return new ResponseEntity<ArrayList<MedicoProntoSocorro>>(HttpStatus.INTERNAL_SERVER_ERROR);
       }
       return new ResponseEntity<ArrayList<MedicoProntoSocorro>>(lista,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value="/getConvenios",method=RequestMethod.GET)
+    public ResponseEntity<ArrayList<Convenio>> getConvenios(){
+      ArrayList<Convenio> convenios;
+      try{
+    	convenios = this.convenios.getConvenios();
+      }
+      catch (Exception e){
+        return new ResponseEntity<ArrayList<Convenio>>(HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return new ResponseEntity<ArrayList<Convenio>>(convenios,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value="/getConveniosPorNome/{nome}",method=RequestMethod.GET)
+    public ResponseEntity<ArrayList<Convenio>> getConvenios(@PathVariable(value="nome")String nome){
+      ArrayList<Convenio> convenios;
+      try{
+    	convenios = this.convenios.getConvenios("nome like '%"+nome+"%'");
+      }
+      catch (Exception e){
+        return new ResponseEntity<ArrayList<Convenio>>(HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return new ResponseEntity<ArrayList<Convenio>>(convenios,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value="/getConveniosPorClinica/{idClinica}",method = RequestMethod.GET)
+    public ResponseEntity<ArrayList<Convenio>> getConveniosPorClinica(@PathVariable(value="idClinica")int idClinica){
+ 	  ArrayList<Convenio> convenios;
+ 	  try{
+ 	    convenios = this.convenios.getConvenios(
+ 	      "id in (select idConvenio from ConvenioClinica_MF where idClinica = "+idClinica+")"
+ 	    );
+ 	  }
+ 	  catch (Exception e){
+ 	    return new ResponseEntity<ArrayList<Convenio>>(HttpStatus.INTERNAL_SERVER_ERROR);
+ 	  }
+ 	  return new ResponseEntity<ArrayList<Convenio>>(convenios,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value="/getConveniosPorPs/{idPs}",method = RequestMethod.GET)
+    public ResponseEntity<ArrayList<Convenio>> getConveniosPorPs(@PathVariable(value="idPs")int idPs){
+ 	  ArrayList<Convenio> convenios;
+ 	  try{
+ 	    convenios = this.convenios.getConvenios(
+ 	      "id in (select idConvenio from ConvenioPs_MF where idPs = "+idPs+")"
+ 	    );
+ 	  }
+ 	  catch (Exception e){
+ 	    return new ResponseEntity<ArrayList<Convenio>>(HttpStatus.INTERNAL_SERVER_ERROR);
+ 	  }
+ 	  return new ResponseEntity<ArrayList<Convenio>>(convenios,HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value="/getEspecialidades/{idMedico}",method=RequestMethod.GET)
+    public ResponseEntity<ArrayList<Especialidade>> getEspecialidades(@PathVariable(value="idMedico")int idMedico){
+      ArrayList<Especialidade> especialidades;
+      try{
+        especialidades = this.especialidades.getEspecialidades("id in (select idEspecialidade from MedicoEspecialidade_MF where idMedico = "+idMedico+")");
+      }
+      catch (Exception e){
+ 	   return new ResponseEntity<ArrayList<Especialidade>>(HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+ 	 return new ResponseEntity<ArrayList<Especialidade>>(especialidades,HttpStatus.OK);
     }
     
     /**
@@ -1243,6 +1601,19 @@ public class PacienteController {
       return new ResponseEntity<Integer>(idHorario,HttpStatus.OK);
     }
     
+    @CrossOrigin
+    @RequestMapping(value="/getMedicoPorCrm/{crm}",method=RequestMethod.GET)
+    public ResponseEntity<Medico> getMedico(@PathVariable(value="crm")String crm){
+      Medico medico;
+      try{
+    	medico = this.medicos.getMedicos("crm = '"+crm+"'").get(0);
+      }
+      catch (Exception e){
+    	return new ResponseEntity<Medico>(HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return new ResponseEntity<Medico>(medico,HttpStatus.OK);
+    }
+    
     /**
      * Retorna um horário com base no seu id passado como parâmetro.
      * @param id
@@ -1344,5 +1715,22 @@ public class PacienteController {
         return new ResponseEntity<MedicoProntoSocorro>(HttpStatus.INTERNAL_SERVER_ERROR);
       }
       return new ResponseEntity<MedicoProntoSocorro>(medicoProntoSocorro,HttpStatus.OK);
+    }
+    
+    
+    
+    @Autowired
+    private HttpServletRequest request;
+    
+    @CrossOrigin
+    @RequestMapping(value="/getRemoteAddr",method=RequestMethod.GET)
+    public ResponseEntity<String> getRemoteAddr(){
+      return new ResponseEntity<String>(request.getRemoteAddr(),HttpStatus.OK);
+    }
+    
+    @CrossOrigin
+    @RequestMapping(value="/getLocalAddr",method=RequestMethod.GET)
+    public ResponseEntity<String> getLocalAddr(){
+      return new ResponseEntity<String>(request.getLocalAddr(),HttpStatus.OK);
     }
 }

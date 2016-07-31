@@ -101,7 +101,7 @@ public class Convenios{
     if (condicao == null)
       throw new Exception("Condição não fornecida.");
     
-    this.bd.prepareStatement("select * from Convenio_MF where "+condicao);
+    this.bd.prepareStatement("select * from Convenio_MF where "+condicao+" order by nome");
     ResultSet resultado = this.bd.executeQuery();
     ArrayList<Convenio> lista = this.getConvenios(resultado);
     resultado.close();
@@ -113,7 +113,7 @@ public class Convenios{
    * @throws Exception 
    */
   public ArrayList<Convenio> getConvenios()throws Exception{
-    this.bd.prepareStatement("select * from Convenio_MF");
+    this.bd.prepareStatement("select * from Convenio_MF order by nome");
     ResultSet resultado = this.bd.executeQuery();
     ArrayList<Convenio> lista = this.getConvenios(resultado);
     resultado.close();
